@@ -4,7 +4,7 @@ powerlib is a theorem library for power systems and power electronics, built on 
 
 ## Directions
 
-- **ATP (Automated Theorem Proving):** automatically prove given propositions, including **synthesis of certificates**.
+- **ATP (Automated Theorem Proving):** automatically prove given propositions, especially **synthesis of certificates**.
 - **ATD (Automated Theorem Discovery):** discover new conjectures from models and existing knowledge, prove them, and add the results to the library.
 
 We are exploring a combination in which Agda serves as the foundation for
