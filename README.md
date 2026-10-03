@@ -21,29 +21,17 @@ level and exploring the potential of ATD.
 
 ## Quick Start
 
-From the repository root, with Lean/Elan, Git, and Python 3.12+ on Linux x86_64:
+Run ATP and ATD on the RL example:
 
 ```sh
-python3 dependencies/setup.py
 python3 dependencies/powerlib.py atp dependencies/examples/rl.json
 python3 dependencies/powerlib.py atd
-lake env lean dependencies/examples/Use.lean
 ```
 
-Setup installs pinned dependencies locally and checks Agda and Lean. ATP returns
-`ACCEPTED` only after Lean verifies the synthesized certificate for the submitted
-model. ATD searches three resistance sign conditions and checks proofs or
-counterexamples. Proof files, logs, and reports are saved under `dependencies/results/`.
+For `R = 2`, `L = 1`, ATP synthesizes `V(i) = i²/4` and returns `ACCEPTED`
+after Lean verifies the certificate. ATD checks three candidate stability conditions.
 
-The first example is a canonical single-port RL circuit with `L > 0`:
-`i' = -(R/L)i + (1/L)v`, equivalent to `Z(s) = R + Ls`. For `R = 2`, `L = 1`,
-ATP produces `V(i) = (1/4)i^2` and the squared-current decay rate `4`.
-Edit [dependencies/examples/rl.json](dependencies/examples/rl.json) using integers or rational strings such
-as `"3/2"`; strict stability requires `R > 0`.
-Here voltage is the input, so the impedance criterion checks that zeros of `Z(s)`
-(poles of `1/Z(s)`) lie in the open left half-plane.
-
-To use the library in Lean, start with `import powerlib`:
+Use a theorem in Lean:
 
 ```lean
 import powerlib
@@ -52,22 +40,3 @@ example (m : powerlib.Impedance) :
     (powerlib.toStateSpace m).Stable ↔ m.Stable :=
   powerlib.stability_agrees m
 ```
-
-Agda checks the abstract model equivalence and theorem transport. Its executable
-conversion is exported through a small data interface; Lean independently proves
-the concrete real-number equivalence, port relation, and stability results.
-This first system covers the canonical RL family.
-
-Recheck the bridge with `python3 dependencies/bridge.py`; run the acceptance tests with
-`python3 -m unittest discover -s dependencies/tests -v`.
-
-## Layout
-
-- `theorems/`: Lean and Agda model definitions, theorems, and checked conversion
-  sources. Category directories will be added manually as the library grows.
-- `dependencies/`: ATP/ATD programs, setup and bridge programs, interface data,
-  examples, tests, and ignored local caches.
-- `archive/`: earlier private research; excluded from promotion.
-
-Repository management scripts live outside the repositories in `/app/script`.
-Agent instruction files remain local and are excluded from GitHub and promotion.
