@@ -1,6 +1,7 @@
 name = "powerlib"
+packagesDir = ".."
 version = "0.1.0"
-defaultTargets = ["powerlib"]
+defaultTargets = ["powerlib", "PowerLibTests", "PowerLibExamples"]
 
 [leanOptions]
 autoImplicit = false
@@ -8,9 +9,27 @@ autoImplicit = false
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4.git"
-rev = "v4.19.0"
+rev = "d13f23b723b8a846827a245b89c10fc7d3f11612"
+
+[[require]]
+name = "LeanForControl"
+git = "https://github.com/AnandGokhale/LeanForControl.git"
+rev = "7507ed04d94068fe3e7d4624b3383433a861bea7"
 
 [[lean_lib]]
 name = "powerlib"
-roots = ["powerlib", "theorems"]
-globs = ["powerlib", "theorems.+"]
+roots = ["powerlib", "theorem", "dependencies"]
+globs = ["powerlib", "theorem.+", "dependencies.Mathlib", "dependencies.LeanForControl"]
+
+[[lean_lib]]
+name = "PowerLibTests"
+roots = ["dependencies.tests.lean.Audit", "dependencies.tests.lean.AuthoredClassification",
+  "dependencies.tests.lean.Automation", "dependencies.tests.lean.ExportRegistry",
+  "dependencies.tests.lean.Registry", "dependencies.tests.lean.RegistryFixture",
+  "dependencies.tests.lean.Upstream"]
+globs = ["dependencies.tests.lean.+"]
+
+[[lean_lib]]
+name = "PowerLibExamples"
+roots = ["example.Use"]
+globs = ["example.+"]

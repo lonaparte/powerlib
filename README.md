@@ -2,6 +2,8 @@
 
 powerlib is a theorem library for power systems and power electronics, built on Lean 4 and Agda.
 
+Development takes place first in the private repository with the maintainer and Codex, and is periodically synchronized to the public repository.
+
 ## Directions
 
 - **ATP (Automated Theorem Proving):** automatically prove given propositions, especially **synthesis of certificates**.
@@ -19,24 +21,41 @@ specific operating conditions, hardware, control methods, and their combinations
 We see this as a good experimental setting for making ATP work at the synthesis
 level and exploring the potential of ATD.
 
-## Quick Start
+## Structure
 
-Run ATP and ATD on the RL example:
+Agda supplies foundational structures and conversions; Lean 4 exposes every
+admitted domain result as a kernel-checked theorem. The project pins Lean 4.34.1
+and Mathlib v4.34.1. Adapt dependencies to these pins with minimal,
+provenance-preserving changes, and accept them only after the complete build and
+proof checks pass. See [Rules.md](Rules.md) for the formal requirements.
+
+## Dependencies
+
+Lake resolves pinned Mathlib and LeanForControl checkouts as siblings of the
+repository:
+
+```text
+<parent>/
+  powerlib/
+  mathlib/
+  LeanForControl/
+```
+
+The private repository uses the same layout. Its import interfaces are
+`dependencies/Mathlib.lean` and `dependencies/LeanForControl.lean`; first-party
+proofs belong in `theorem/`. Upstream sources and caches remain outside the
+repository.
+
+After installing Elan, run from the repository root:
 
 ```sh
-python3 dependencies/powerlib.py atp dependencies/examples/rl.json
-python3 dependencies/powerlib.py atd
+compatibility_patch="$PWD/dependencies/LeanForControl-4.34.1.patch"
+git -C ../LeanForControl apply --check "$compatibility_patch"
+git -C ../LeanForControl apply "$compatibility_patch"
+lake exe cache get
+lake build
+(cd dependencies/integrations/leanforcontrol && lake exe cache get && lake build)
 ```
 
-For `R = 2`, `L = 1`, ATP synthesizes `V(i) = i²/4` and returns `ACCEPTED`
-after Lean verifies the certificate. ATD checks three candidate stability conditions.
-
-Use a theorem in Lean:
-
-```lean
-import powerlib
-
-example (m : powerlib.Impedance) :
-    (powerlib.toStateSpace m).Stable ↔ m.Stable :=
-  powerlib.stability_agrees m
-```
+Apply the compatibility diff only to the pinned clean LeanForControl checkout;
+the checks verify its source identity and exact diff.
