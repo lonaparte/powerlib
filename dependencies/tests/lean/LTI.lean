@@ -1,67 +1,119 @@
 import powerlib
 
-open powerlib
+open powerlib powerlib.ImpedanceCriterion powerlib.LTI
 
-example {n : ℕ} (m : LTI.Model n) (c : LTI.Accepted m) : LTI.ExponentiallyStable m := by aesop
-example {n : ℕ} (m : LTI.Model n) (initial : LTI.State n) :
-    LTI.IsTrajectory m (LTI.response m initial) := by aesop
-example {n : ℕ} (m : LTI.Model n) (initial : LTI.State n) :
-    LTI.response m initial 0 = initial := by simp
-example {n : ℕ} (m : LTI.Model n) (c : LTI.Accepted m)
-    (initial : LTI.State n) (t : ℝ) (ht : 0 ≤ t) :
-    LTI.sqNorm (LTI.response m initial t) ≤
-      (c.upper / c.lower) * Real.exp (-(t / c.upper)) * LTI.sqNorm initial := by aesop
+namespace LTIConsumers
 
--- Every named LTI theorem has a standard automation use case. None of these
--- proofs supplies a theorem name to aesop/simp; mere registry membership is
--- tested separately below and is not a substitute for actual proof search.
-section LTIReuse
-variable {n : ℕ} (m : LTI.Model n) (c : LTI.Accepted m)
-  (x y : ℝ → LTI.State n) (hx : LTI.IsTrajectory m x) (hy : LTI.IsTrajectory m y)
-  (t : ℝ) (ht : 0 ≤ t) (u v : LTI.State n)
+variable {κ : Type} [Fintype κ] [DecidableEq κ] {n₁ n₂ n₁' n₂' : ℕ}
+  (ic : Interconnection (Fin n₁) (Fin n₂) κ)
+  {T₁ : Matrix (Fin n₁') (Fin n₁) ℝ} {S₁ : Matrix (Fin n₁) (Fin n₁') ℝ}
+  {T₂ : Matrix (Fin n₂') (Fin n₂) ℝ} {S₂ : Matrix (Fin n₂) (Fin n₂') ℝ}
 
-example : m.field 0 = 0 := by simp
-example : m.field (u + v) - m.field u = m.field v := by aesop
-example : m.operator u = m.field u := by simp
-example : LTI.sqNorm u = ‖LTI.euclidean u‖ ^ 2 := by aesop
-example : ∃ z, LTI.IsTrajectory m z ∧ z 0 = u := by aesop
-example : 0 ≤ LTI.sqNorm u := by aesop
-example : LTI.sqNorm (0 : LTI.State n) = 0 := by simp
-example : LTI.sqNorm u = 0 ↔ u = 0 := by simp
+@[powerlib_foundation] theorem criterion_coordinate_free (hTS₁ : T₁ * S₁ = 1) (hST₁ : S₁ * T₁ = 1)
+    (hTS₂ : T₂ * S₂ = 1) (hST₂ : S₂ * T₂ = 1) :
+    (ic.changeCoordinates T₁ S₁ T₂ S₂).ImpedanceStable ↔ ic.ImpedanceStable := by
+  powerlib_search
 
-include hx in
-example (P : Matrix (Fin n) (Fin n) ℝ) :
-    HasDerivAt (fun s => LTI.energy P (x s))
-      (dotProduct (m.field (x t)) (P.mulVec (x t)) +
-       dotProduct (x t) (P.mulVec (m.field (x t)))) t := by aesop
-example : dotProduct (m.field u) (c.P.mulVec u) +
-    dotProduct u (c.P.mulVec (m.field u)) = -LTI.sqNorm u := by aesop
-include hx in
-example : HasDerivAt (fun s => LTI.energy c.P (x s)) (-LTI.sqNorm (x t)) t := by aesop
-include hx ht in
-example : LTI.energy c.P (x t) ≤ Real.exp (-(t / c.upper)) * LTI.energy c.P (x 0) := by aesop
-include hx ht in
-example : LTI.sqNorm (x t) ≤
-    (c.upper / c.lower) * Real.exp (-(t / c.upper)) * LTI.sqNorm (x 0) := by aesop
-include hx ht in
-example : ‖LTI.euclidean (x t)‖ ≤ Real.sqrt (c.upper / c.lower) *
-    Real.exp (-(t / c.upper) / 2) * ‖LTI.euclidean (x 0)‖ := by aesop
-include c hx hy ht in
-example (h0 : x 0 = y 0) : x t = y t := by aesop
-include c hx ht in
-example : x t = LTI.response m (x 0) t := by aesop
-include c hx in
-example : Filter.Tendsto (fun t => LTI.sqNorm (x t)) Filter.atTop (nhds 0) := by aesop
-example : generated.linearField m.A u = m.A.mulVec u := by simp
-end LTIReuse
+omit [DecidableEq κ] in
+@[powerlib_foundation] theorem closed_loop_coordinate_free (hTS₁ : T₁ * S₁ = 1)
+    (hST₁ : S₁ * T₁ = 1) (hTS₂ : T₂ * S₂ = 1) (hST₂ : S₂ * T₂ = 1) :
+    LTI.SpectrallyStable (ic.changeCoordinates T₁ S₁ T₂ S₂).closedLoop ↔
+      LTI.SpectrallyStable ic.closedLoop := by
+  powerlib_search
 
+@[powerlib_foundation] theorem minimal_realizations_agree {n n' p : ℕ}
+    {m : LTI.Model (Fin n) (Fin p)} {m' : LTI.Model (Fin n') (Fin p)}
+    (hc : LinearSystems.IsControllable m.A m.B) (ho : LinearSystems.IsObservable m.A m.C)
+    (hc' : LinearSystems.IsControllable m'.A m'.B) (ho' : LinearSystems.IsObservable m'.A m'.C) :
+    Similar m m' ↔ ∀ s : ℂ, (LTI.characteristicMatrix m.A s).det ≠ 0 →
+      (LTI.characteristicMatrix m'.A s).det ≠ 0 → transfer m s = transfer m' s := by
+  powerlib_search
+
+@[powerlib_foundation] theorem node_impedance_determines_closed_loop {p n' : ℕ}
+    (ic : Interconnection (Fin n₁) (Fin n₂) (Fin p)) {m' : LTI.Model (Fin n') (Fin p)}
+    (hc : LinearSystems.IsControllable ic.closedLoopPortFin.A ic.closedLoopPortFin.B)
+    (ho : LinearSystems.IsObservable ic.closedLoopPortFin.A ic.closedLoopPortFin.C)
+    (hc' : LinearSystems.IsControllable m'.A m'.B) (ho' : LinearSystems.IsObservable m'.A m'.C) :
+    Similar ic.closedLoopPortFin m' ↔ ∀ s : ℂ, (LTI.characteristicMatrix ic.source.A s).det ≠ 0 →
+      (LTI.characteristicMatrix ic.load.A s).det ≠ 0 → ic.returnDifference s ≠ 0 →
+        (LTI.characteristicMatrix m'.A s).det ≠ 0 → transfer m' s = ic.portImpedance s := by
+  powerlib_search
+
+@[powerlib_foundation] theorem every_impedance_has_minimal_realization {n p : ℕ}
+    (m : LTI.Model (Fin n) (Fin p)) :
+    ∃ (n' : ℕ) (m' : LTI.Model (Fin n') (Fin p)), n' ≤ n ∧
+      LinearSystems.IsControllable m'.A m'.B ∧ LinearSystems.IsObservable m'.A m'.C ∧
+        ∀ s : ℂ, (LTI.characteristicMatrix m'.A s).det ≠ 0 →
+          (LTI.characteristicMatrix m.A s).det ≠ 0 → transfer m' s = transfer m s := by
+  powerlib_search
+
+@[powerlib_foundation] theorem impedance_is_markov_data {ι ι' : Type} [Fintype ι] [DecidableEq ι]
+    [Fintype ι'] [DecidableEq ι'] {m : LTI.Model ι κ} {m' : LTI.Model ι' κ} :
+    (∀ s : ℂ, (LTI.characteristicMatrix m.A s).det ≠ 0 →
+      (LTI.characteristicMatrix m'.A s).det ≠ 0 → transfer m s = transfer m' s) ↔
+      m.D = m'.D ∧ ∀ k, markov m k = markov m' k := by
+  powerlib_search
+
+@[powerlib_foundation] theorem minimal_means_controllable_observable {n p : ℕ}
+    {m : LTI.Model (Fin n) (Fin p)} :
+    (LinearSystems.IsControllable m.A m.B ∧ LinearSystems.IsObservable m.A m.C) ↔
+      ∀ (n₂ : ℕ) (m₂ : LTI.Model (Fin n₂) (Fin p)),
+        (∀ s : ℂ, (LTI.characteristicMatrix m.A s).det ≠ 0 →
+          (LTI.characteristicMatrix m₂.A s).det ≠ 0 → transfer m s = transfer m₂ s) → n ≤ n₂ := by
+  powerlib_search
+
+end LTIConsumers
 
 open Lean Elab Command in
 run_cmd do
   let env ← getEnv
-  for root in powerlib.Registry.theoremNames env do
-    if root.toString.startsWith "powerlib.LTI." || root == `powerlib.generated.linearField_spec then
-      for axiomName in powerlib.Search.declarationAxioms env root do
-        unless powerlib.Search.allowedAxiom axiomName do
-          throwError "Unexpected axiom {axiomName} in {root}"
-  logInfo "POWERLIB_LTI_REUSE_OK"
+  let mut lti : Nat := 0
+  let mut interconnection : Nat := 0
+  for name in powerlib.Registry.theoremNames env do
+    let some entry := powerlib.Search.describe env name |
+      throwError "Registered theorem absent from discovery: {name}"
+    let user := (Lean.privateToUserName? name).getD name
+    let m := entry.moduleName
+    if m == `theorem.LTI then
+      unless (`powerlib.LTI).isPrefixOf user do
+        throwError "LTI theorem outside powerlib.LTI: {name}"
+      lti := lti + 1
+    if m == `theorem.ImpedanceRealization then
+      unless (`powerlib.ImpedanceCriterion).isPrefixOf user do
+        throwError "Interconnection realization theorem outside its namespace: {name}"
+      interconnection := interconnection + 1
+  unless lti == 80 && interconnection == 12 do
+    throwError "Expected 80/12 LTI/interconnection theorems, found {lti}/{interconnection}"
+  for name in #[`powerlib.ImpedanceCriterion.Interconnection.impedanceStable_changeCoordinates_iff,
+      `powerlib.ImpedanceCriterion.Interconnection.spectrallyStable_closedLoop_changeCoordinates_iff,
+      `powerlib.ImpedanceCriterion.Interconnection.closedLoopPortFin_A,
+      `powerlib.LTI.controllable_observable_iff_minimal,
+      `powerlib.LTI.transfer_changeCoordinates,
+      `powerlib.ImpedanceCriterion.Interconnection.closedLoopPort_changeCoordinates,
+      `powerlib.LTI.markov_eq_of_transfer_eventually_eq,
+      `powerlib.LTI.similar_of_markov_eq,
+      `powerlib.LTI.similar_iff_transfer_eq,
+      `powerlib.ImpedanceCriterion.Interconnection.similar_closedLoopPortFin_iff,
+      `powerlib.LTI.transfer_eq_iff_markov_eq,
+      `powerlib.LTI.exists_minimal_realization,
+      `powerlib.ImpedanceCriterion.Interconnection.exists_minimal_realization_portImpedance] do
+    unless powerlib.Registry.kindOf? env name == some .foundation do
+      throwError "LTI realization foundation result lost its classification: {name}"
+  let some iso := env.find? `powerlib.LTI.similar_of_markov_eq |
+    throwError "The state-space isomorphism theorem is missing"
+  for upstream in #[`LinearSystems.IsControllable, `LinearSystems.IsObservable] do
+    unless iso.type.getUsedConstants.contains upstream do
+      throwError "The isomorphism theorem does not state {upstream}"
+    let some idx := env.getModuleIdxFor? upstream |
+      throwError "Upstream predicate has no module: {upstream}"
+    unless env.header.moduleNames[idx]!.getRoot == `LeanForControl do
+      throwError "Minimality predicate is not LeanForControl's: {upstream}"
+  let some reduceProof := (env.find? `powerlib.LTI.reduce_uncontrollable).bind
+      (·.value? (allowOpaque := true)) |
+    throwError "The controllability reduction is missing"
+  for upstream in #[`LinearSystems.reachableSubspace_invariant,
+      `LinearSystems.range_B_le_reachableSubspace,
+      `LinearSystems.reachableSubspace_eq_top_iff_isControllable] do
+    unless reduceProof.getUsedConstants.contains upstream do
+      throwError "The reduction did not directly reuse {upstream}"
+  logInfo "POWERLIB_REALIZATION_OK: coordinate-free criterion; minimal realizations exist, are unique up to similarity and are exactly the controllable and observable ones"
